@@ -47,8 +47,8 @@ See `docker-compose.yaml` for complete list of configurable options.
 
 ## 📂 Volumes
 
-- `./rootfs/config/bigbluebutton` - Data storage
-- `./rootfs/data/bigbluebutton` - Data storage
+- `./volumes/config/bigbluebutton` - Data storage
+- `./volumes/data/bigbluebutton` - Data storage
 
 ## 🔍 Logging
 
