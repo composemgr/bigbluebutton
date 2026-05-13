@@ -1,5 +1,8 @@
 # nginx proxy address - http://172.17.0.1:8078
+# Note: BigBlueButton full server requires additional system configuration.
+# This deploys the Greenlight web frontend for an existing BBB server.
 
+name: bigbluebutton
 x-logging: &default-logging
   driver: json-file
   options:
@@ -7,24 +10,54 @@ x-logging: &default-logging
     max-file: "1"
 
 services:
-  bigbluebutton:
-    image: bigbluebutton/bigbluebutton:latest
+  greenlight:
+    image: bigbluebutton/greenlight:latest
+    pull_policy: always
     container_name: bigbluebutton-app
-    restart: unless-stopped
+    hostname: ${BASE_HOST_NAME:-$HOSTNAME}
+    restart: always
     logging: *default-logging
     networks:
       - bigbluebutton
     ports:
-      - "8078:80"
+      - "172.17.0.1:8078:80"
     environment:
       TZ: ${TZ:-America/New_York}
-      PUID: ${SERVICE_USER:-1000}
-      PGID: ${SERVICE_GROUP:-1000}
+      BIGBLUEBUTTON_ENDPOINT: ${BBB_ENDPOINT:-https://bbb.example.com/bigbluebutton/api}
+      BIGBLUEBUTTON_SECRET: ${BBB_SECRET:-changeme_bbb_shared_secret}
+      SECRET_KEY_BASE: ${APP_SECRET_KEY:-changeme_secret_key_min_32_chars}
+      DATABASE_URL: postgres://${DB_USER_NAME:-greenlight}:${DB_USER_PASS:-changeme_db_password}@bigbluebutton-db:5432/${DB_CREATE_DATABASE_NAME:-greenlight}
+      DEFAULT_REGISTRATION: open
+      ALLOW_GREENLIGHT_ACCOUNTS: true
     volumes:
-      - ./volumes/config/bigbluebutton:/config
-      - ./volumes/data/bigbluebutton:/data
+      - ./volumes/data/bigbluebutton:/usr/src/app/storage
+    depends_on:
+      bigbluebutton-db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  bigbluebutton-db:
+    image: postgres:latest
+    pull_policy: always
+    container_name: bigbluebutton-db
+    hostname: bigbluebutton-db
+    restart: always
+    logging: *default-logging
+    networks:
+      - bigbluebutton
+    environment:
+      TZ: ${TZ:-America/New_York}
+      POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-greenlight}
+      POSTGRES_USER: ${DB_USER_NAME:-greenlight}
+      POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
+    volumes:
+      - ./volumes/data/db/postgres/bigbluebutton:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 30s
       timeout: 10s
       retries: 3
