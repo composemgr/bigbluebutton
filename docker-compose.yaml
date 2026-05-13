@@ -17,12 +17,32 @@ services:
     hostname: ${BASE_HOST_NAME:-$HOSTNAME}
     restart: always
     logging: *default-logging
+    labels:
+      - 'traefik.enable=true'
+      - 'cloudflare.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'cloudflare.service=http://bigbluebutton-app:80'
+      - 'cloudflare.hostname=bigbluebutton.${CLOUDFLARE_ZONE_NAME:-}'
+      - 'traefik.http.routers.bigbluebutton-app.entrypoints=http'
+      - 'traefik.http.routers.bigbluebutton-app-secure.tls=true'
+      - 'traefik.http.routers.bigbluebutton-app.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.middlewares.bigbluebutton-app-https-redirect.redirectscheme.scheme=https'
+      - 'traefik.http.routers.bigbluebutton-app.middlewares=bigbluebutton-app-https-redirect'
+      - 'traefik.http.routers.bigbluebutton-app-secure.entrypoints=https'
+      - 'traefik.http.routers.bigbluebutton-app-secure.rule=Host($(${BASE_HOST_NAME:-$HOSTNAME}))'
+      - 'traefik.http.routers.bigbluebutton-app-secure.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.bigbluebutton-app-secure.service=bigbluebutton-app'
+      - 'traefik.http.services.bigbluebutton-app.loadbalancer.server.port=80'
     networks:
       - bigbluebutton
+      - proxy
+      - cloudflare
     ports:
       - "172.17.0.1:8078:80"
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: bigbluebutton-app
+      HOSTNAME: ${BASE_HOST_NAME:-$HOSTNAME}
       BIGBLUEBUTTON_ENDPOINT: ${BBB_ENDPOINT:-https://bbb.example.com/bigbluebutton/api}
       BIGBLUEBUTTON_SECRET: ${BBB_SECRET:-changeme_bbb_shared_secret}
       SECRET_KEY_BASE: ${APP_SECRET_KEY:-changeme_secret_key_min_32_chars}
@@ -51,6 +71,7 @@ services:
       - bigbluebutton
     environment:
       TZ: ${TZ:-America/New_York}
+      CONTAINER_NAME: bigbluebutton-db
       POSTGRES_DB: ${DB_CREATE_DATABASE_NAME:-greenlight}
       POSTGRES_USER: ${DB_USER_NAME:-greenlight}
       POSTGRES_PASSWORD: ${DB_USER_PASS:-changeme_db_password}
@@ -65,3 +86,7 @@ services:
 networks:
   bigbluebutton:
     external: false
+  proxy:
+    external: true
+  cloudflare:
+    external: true
